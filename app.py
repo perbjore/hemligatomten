@@ -126,6 +126,71 @@ def make_mapping(participants):
 
     return None
 
+
+def complete_partial_mapping(participants, fixed_mapping):
+    """
+    Given participants (list of dicts) and a partial fixed_mapping {giver:receiver},
+    try to assign receivers to the remaining givers such that all constraints hold
+    and receiver uniqueness is preserved. Returns a full mapping or None on failure.
+    """
+    pmap = {p['id']: p for p in participants}
+    all_ids = [p['id'] for p in participants]
+    fixed_receivers = set(fixed_mapping.values())
+    unassigned_givers = [pid for pid in all_ids if pid not in fixed_mapping]
+    available_receivers = [rid for rid in all_ids if rid not in fixed_receivers]
+
+    if len(unassigned_givers) != len(available_receivers):
+        return None
+
+    def valid(giver_id, receiver_id):
+        if giver_id == receiver_id:
+            return False
+        giver = pmap[giver_id]
+        receiver = pmap[receiver_id]
+        if giver.get('household') and receiver.get('household') and giver['household'] == receiver['household']:
+            return False
+        if receiver.get('email') in (giver.get('excludes') or []):
+            return False
+        return True
+
+    # build candidate lists
+    candidates = {}
+    for g in unassigned_givers:
+        cand = [r for r in available_receivers if valid(g, r)]
+        if not cand:
+            # no possible receiver for this giver
+            return None
+        candidates[g] = cand
+
+    # order givers by fewest candidates (heuristic)
+    ordered = sorted(unassigned_givers, key=lambda x: len(candidates[x]))
+
+    used = set()
+    assignment = {}
+
+    def backtrack(idx):
+        if idx >= len(ordered):
+            return True
+        g = ordered[idx]
+        for r in candidates[g]:
+            if r in used:
+                continue
+            used.add(r)
+            assignment[g] = r
+            if backtrack(idx+1):
+                return True
+            used.remove(r)
+            assignment.pop(g, None)
+        return False
+
+    ok = backtrack(0)
+    if not ok:
+        return None
+    # merge fixed and assignment
+    full = dict(fixed_mapping)
+    full.update(assignment)
+    return full
+
 def get_participants_for_algo():
     rows = query_participants()
     participants = []
@@ -461,11 +526,22 @@ def create_app():
             return redirect(url_for('admin_dashboard'))
         db = get_db()
         cur = db.cursor()
-        # remove any assignments referencing this participant
+        # Find givers who will lose their receiver because this participant is being removed
+        cur.execute('SELECT p1.id AS giver_id, p1.name AS giver_name FROM assignments a JOIN participants p1 ON a.giver_id = p1.id WHERE a.receiver_id = ?', (pid_i,))
+        affected_rows = cur.fetchall()
+        affected_names = [r['giver_name'] for r in affected_rows]
+
+        # Remove any assignments that referenced this participant (as giver or receiver)
         cur.execute('DELETE FROM assignments WHERE giver_id=? OR receiver_id=?', (pid_i, pid_i))
+        # Remove the participant row
         cur.execute('DELETE FROM participants WHERE id=?', (pid_i,))
         db.commit()
-        flash('Deltagaren och tillhörande tilldelningar raderade.', 'success')
+
+        if affected_names:
+            names_str = ', '.join(affected_names)
+            flash(f'Deltagaren raderad. Följande givare förlorade sina tilldelningar: {names_str}. Kör lottning för att skapa nya tilldelningar.', 'warning')
+        else:
+            flash('Deltagaren raderad. Ingen annans tilldelning påverkades.', 'success')
         return redirect(url_for('admin_dashboard'))
 
     return app
