@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <h1>Registrera till Hemliga Tomten</h1>
+      <form action="/register" method="post">
+        {% if unclaimed and unclaimed|length > 0 %}
+          <div class="mb-3">
+            <label class="form-label">Välj ditt namn (obligatoriskt)</label>
+            <select class="form-select" name="claim_id" required>
+              <option value="">-- Välj ditt namn --</option>
+              {% for u in unclaimed %}
+                <option value="{{ u.id }}">{{ u.name }}{% if u.household %} — {{ u.household }}{% endif %}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Välj den plats som administratören skapat för dig. Om ditt namn saknas, kontakta administratören.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-post</label>
+            <input class="form-control" type="email" name="email" required>
+          </div>
+          <button class="btn btn-primary" type="submit">Bekräfta</button>
+        {% else %}
+          <div class="alert alert-info">Registreringen är stängd — inga lediga platser finns. Kontakta administratören för att bli tillagd.</div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+{% endblock %}

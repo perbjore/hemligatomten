@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-6 offset-md-3">
+      <h2>Administratör - Logga in</h2>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label">Lösenord</label>
+          <input class="form-control" type="password" name="password" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Logga in</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}

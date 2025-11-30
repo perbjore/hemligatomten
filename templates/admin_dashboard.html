@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-10 offset-md-1">
+      <h2>Administrationspanelen</h2>
+      <p>
+        <a class="btn btn-danger" href="/admin/draw" onclick="event.preventDefault(); if(confirm('Kör lottningen nu? Detta kommer att skriva över tidigare tilldelningar.')) { fetch('/admin/draw', {method:'POST'}).then(()=>location.reload()) }">Kör lottning</a>
+        <a class="btn btn-secondary" href="/admin/assignments.csv">Ladda ner CSV</a>
+        <a class="btn btn-light" href="/admin/logout">Logga ut</a>
+      </p>
+
+      <h4>Lägg till deltagare</h4>
+      <form method="post" action="/admin/add_participant" class="mb-4">
+        <div class="row">
+          <div class="col-md-5 mb-2"><input class="form-control" name="name" placeholder="Fullständigt namn" required></div>
+          <div class="col-md-4 mb-2"><input class="form-control" name="household" placeholder="Hushåll (valfritt)"></div>
+          <div class="col-md-5 mb-2"><input class="form-control" name="email" placeholder="E-post"></div>
+          <div class="col-md-1 mb-2 form-check"><input class="form-check-input" type="checkbox" id="hidden" name="hidden" checked><label class="form-check-label" for="hidden">Dold</label></div>
+          <div class="col-md-2 mb-2"><button class="btn btn-primary" type="submit">Lägg till</button></div>
+        </div>
+      </form>
+
+      <h4>Deltagare</h4>
+      <table class="table table-sm">
+        <thead><tr><th>#</th><th>Namn</th><th>E-post</th><th>Hushåll</th><th>Registrerad</th><th>Dold</th><th>Åtgärd</th></tr></thead>
+        <tbody>
+          {% for p in participants %}
+            <tr>
+              <td>{{ p.id }}</td>
+              <td>{{ p.name }}</td>
+              <td>
+                {{ p.email or '' }}
+                <div class="mt-1">
+                  <form method="post" action="/admin/set_email" class="d-flex">
+                    <input type="hidden" name="participant_id" value="{{ p.id }}">
+                    <input class="form-control form-control-sm me-2" name="email" type="email" placeholder="Sätt e-post" aria-label="email">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Spara</button>
+                  </form>
+                </div>
+              </td>
+              <td>{{ p.household or '' }}</td>
+              <td>{{ 'Ja' if p.email else 'Nej' }}</td>
+              <td>{{ 'Ja' if p.hidden and p.hidden|int == 1 else 'Nej' }}</td>
+              <td>
+                <form method="post" action="/admin/delete_participant" onsubmit="return confirm('Radera deltagaren? Detta kan inte ångras.');" class="d-inline">
+                  <input type="hidden" name="participant_id" value="{{ p.id }}">
+                  <button class="btn btn-sm btn-danger" type="submit">Ta bort</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h4>Tilldelningar</h4>
+      {% if assignments %}
+        <table class="table table-sm">
+          <thead><tr><th>Givare</th><th>Mottagare (e-post)</th></tr></thead>
+          <tbody>
+            {% for a in assignments %}
+              <tr>
+                <td>{{ a.giver_name }}</td>
+                <td>{{ a.receiver_name }} &lt;{{ a.receiver_email }}&gt;</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="alert alert-info">Inga tilldelningar än. Kör lottningen för att skapa dem.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
